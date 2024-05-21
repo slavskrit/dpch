@@ -19,3 +19,4 @@ futures = "0.3" # for our async / await blocks
 openssl-sys = "0.9.98"
 pyroscope = "0.5.7"
 pyroscope_pprofrs = "0.2.7"
+rand = "0.8.5"

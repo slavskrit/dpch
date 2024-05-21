@@ -32,7 +32,10 @@ RUN adduser \
     --shell "/sbin/nologin" \
     # --no-create-home \
     --uid "${UID}" \
-    appuser
+    appuser && \
+    apt update && apt install -y wget && \
+    wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp && \
+    chmod a+rx /usr/local/bin/yt-dlp
 
 # RUN sudo usermod -aG docker appuser
 USER appuser

@@ -2,6 +2,7 @@ use log::{info, log, warn};
 use pyroscope::pyroscope::{PyroscopeAgentReady, PyroscopeAgentRunning};
 use pyroscope::{PyroscopeAgent, Result};
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+use rand::distributions::{Alphanumeric, DistString};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
@@ -54,13 +55,11 @@ async fn main() -> Result<()> {
                 Some(true) => {
                     let link = msg.text().unwrap();
                     info!("Found Instagram link in the text: {}", link);
-                    bot.send_message(msg.chat.id, format!("Found Instagram link: {}", link))
-                        .await?;
                     add_tag("action".to_string(), "long_task".to_string());
                     let url = extract_link(link).unwrap();
-                    let video_id = extract_video_id(url).unwrap();
+                    let video_id = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
                     let video_path = download(url, video_id.clone()).await;
-                    info!("File with id {video_id} saved to {video_path}");
+                    info!("File with url {url} saved to {video_path}");
                     bot.send_video(msg.chat.id, InputFile::file(video_path))
                         .await?;
                     remove_tag("action".to_string(), "lonk_task".to_string());
@@ -84,55 +83,25 @@ fn extract_link(message: &str) -> Option<&str> {
         let t = &message[start..];
         let end = t.find(' ').unwrap_or_else(|| t.len());
         let link = &t[..end];
+        info!("Link extracted {link}");
         return Some(link);
     }
     None
 }
 
-fn extract_video_id(url: &str) -> Option<String> {
-    let instagram_url_start = "https://www.instagram.com/p/";
-    if let Some(start) = url.find(instagram_url_start) {
-        let t = &url[start + instagram_url_start.len()..];
-        let end = t.find('/').unwrap_or_else(|| t.len());
-        let video_id = &t[..end];
-        return Some(video_id.to_string());
-    }
-    None
-}
-
 async fn download(url: &str, video_id: String) -> String {
+    let path = format!("/tmp/{video_id}");
     let output = Command::new("yt-dlp")
-        .args(["-v", "-f", "mp4", "-o", &video_id, url])
+        .args(["-v", "-f", "mp4", "-o", &path, url])
         .current_dir("/tmp")
         .status();
     match output {
-        Ok(r) => {
-            return format!("/tmp/{video_id}");
+        Ok(_) => {
+            return path;
         }
         Err(_) => {
-            log::error!("Could not parse an audio by given path: {url}");
+            log::error!("Could not download a video for a given path: {url}");
             return String::new();
         }
     }
-    // match output {
-    //     Ok(_output) => match fs::read_to_string(format!("{url}.txt")).await {
-    //         Ok(result) => {
-    //             log::info!("Result for {url}: {result}");
-    //             return result;
-    //         }
-    //         Err(_) => {
-    //             log::error!("Could not parse an audio by given path: {url}");
-    //             return String::new();
-    //         }
-    //     },
-    //     Err(_) => {
-    //         log::error!("Could not parse an audio by given path: {url}");
-    //         return String::new();
-    //     }
-    // }
-}
-
-async fn long_task() {
-    print!("Long");
-    thread::sleep(Duration::from_millis(4000));
 }

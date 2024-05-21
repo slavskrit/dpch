@@ -8,5 +8,6 @@ services:
     container_name: dpch
     build: .
     environment:
+      - RUST_LOG=info
       - PYROSCOPE_URL=${PYROSCOPE_URL}
       - TELOXIDE_TOKEN=${TELOXIDE_TOKEN}
