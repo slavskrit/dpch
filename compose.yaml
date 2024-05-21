@@ -1,0 +1,12 @@
+services:
+  pyroscope:
+    image: grafana/pyroscope
+    ports:
+      - '4040:4040'
+
+  bot:
+    container_name: dpch
+    build: .
+    environment:
+      - PYROSCOPE_URL=${PYROSCOPE_URL}
+      - TELOXIDE_TOKEN=${TELOXIDE_TOKEN}
