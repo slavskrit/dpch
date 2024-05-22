@@ -32,10 +32,13 @@ RUN adduser \
     --shell "/sbin/nologin" \
     # --no-create-home \
     --uid "${UID}" \
-    appuser && \
-    apt update && apt install -y wget && \
-    wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp && \
-    chmod a+rx /usr/local/bin/yt-dlp
+    appuser 
+
+RUN apt-get update -y && apt-get install -y \
+    ffmpeg \
+    python3-pip
+
+RUN python3 -m pip install -U "yt-dlp[default]"
 
 # RUN sudo usermod -aG docker appuser
 USER appuser
@@ -46,3 +49,5 @@ COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifica
 
 # What the container should run when it is started.
 CMD ["/bin/server"]
+
+# CMD ["/usr/local/bin/yt-dlp"]

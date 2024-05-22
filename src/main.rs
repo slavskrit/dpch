@@ -1,14 +1,11 @@
-use log::{info, log, warn};
-use pyroscope::pyroscope::{PyroscopeAgentReady, PyroscopeAgentRunning};
-use pyroscope::{PyroscopeAgent, Result};
-use pyroscope_pprofrs::{pprof_backend, PprofConfig};
+use log::info;
 use rand::distributions::{Alphanumeric, DistString};
+use std::io::Result;
 use std::process::Command;
-use std::sync::{Arc, Mutex};
-use std::{thread, time::Duration};
+use std::sync::Arc;
+use teloxide::payloads::SendVideoSetters;
+use teloxide::prelude::*;
 use teloxide::types::InputFile;
-use teloxide::{dispatching::dialogue::InMemStorage, net::Download, prelude::*};
-use tokio::fs;
 
 #[derive(Clone, Default)]
 pub enum State {
@@ -16,53 +13,40 @@ pub enum State {
     Start,
 }
 
-static APPLICATION_NAME: &str = "dpch.tags";
+static APPLICATION_NAME: &str = "dpch";
 static INSTAGRAM_MAIN_URL: &str = "https://www.instagram.com/";
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    pretty_env_logger::init();
-    let url = std::env::var("PYROSCOPE_URL").expect("PYROSCOPE_URL not set");
+    pretty_env_logger::init_timed();
     info!("Starting DPCH bot...");
-    info!("PYROSCOPE_URL: {url}");
 
-    let agent = PyroscopeAgent::builder(url, APPLICATION_NAME.to_string())
-        .backend(pprof_backend(PprofConfig::new().sample_rate(100)))
-        .build()?;
     let start = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    println!("Start Time: {}", start);
+    info!("Start Time: {start}");
 
     let bot = Bot::from_env();
-
-    // let (add_tag, remov_tag) = agent_running.tag_wrapper();
-
-    // add_tag("series_a".to_string(), "Number 1".to_string());
-    let agent_running = agent.start();
-    let (add_tag, remove_tag) = agent_running.unwrap().tag_wrapper();
-
-    let add_tag = Arc::new(add_tag);
-    let remove_tag = Arc::new(remove_tag);
-
-    remove_tag("series_a".to_string(), "a".to_string());
+    // let agent_running = agent.start();
     teloxide::repl(bot, move |bot: Bot, msg: Message| {
-        let add_tag = add_tag.clone();
-        let remove_tag = remove_tag.clone();
+        // let (add_tag, remove_tag) = (add_tag.clone(), remove_tag.clone());
         async move {
             match msg.text().map(|text| text.contains(INSTAGRAM_MAIN_URL)) {
                 Some(true) => {
                     let link = msg.text().unwrap();
                     info!("Found Instagram link in the text: {}", link);
-                    add_tag("action".to_string(), "long_task".to_string());
+                    // add_tag("action".to_string(), "download_video".to_string()).unwrap();
                     let url = extract_link(link).unwrap();
                     let video_id = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
                     let video_path = download(url, video_id.clone()).await;
                     info!("File with url {url} saved to {video_path}");
+                    // remove_tag("action".to_string(), "download_video".to_string()).unwrap();
+                    // add_tag("action".to_string(), "upload_video".to_string()).unwrap();
                     bot.send_video(msg.chat.id, InputFile::file(video_path))
+                        .reply_to_message_id(msg.id)
                         .await?;
-                    remove_tag("action".to_string(), "lonk_task".to_string());
+                    // remove_tag("action".to_string(), "upload_video".to_string()).unwrap();
                 }
                 Some(false) => {
                     info!("Text does not contain an Instagram link.");
@@ -75,6 +59,7 @@ async fn main() -> Result<()> {
         }
     })
     .await;
+
     Ok(())
 }
 
