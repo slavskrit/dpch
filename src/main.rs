@@ -7,6 +7,8 @@ use teloxide::payloads::SendVideoSetters;
 use teloxide::prelude::*;
 use teloxide::types::InputFile;
 
+// mod db;
+
 #[derive(Clone, Default)]
 pub enum State {
     #[default]
@@ -27,6 +29,11 @@ async fn main() -> Result<()> {
         .as_secs();
     info!("Start Time: {start}");
 
+    // let db = Database::new(&database_url).await.unwrap();
+    // //
+    //     db.set("foo", "bar").await.unwrap();
+    //     let value = db.get("foo").await.unwrap();
+    //
     let bot = Bot::from_env();
     // let agent_running = agent.start();
     teloxide::repl(bot, move |bot: Bot, msg: Message| {

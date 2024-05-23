@@ -19,4 +19,9 @@ futures = "0.3" # for our async / await blocks
 openssl-sys = "0.9.98"
 pyroscope = "0.5.7"
 pyroscope_pprofrs = "0.2.7"
+sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls"] }
 rand = "0.8.5"
+
+[lib]
+name = "db"
+path = "src/db.rs"
