@@ -10,6 +10,7 @@ teloxide = { version = "0.12", features = ["macros"] }
 log = "0.4"
 pretty_env_logger = "0.5.0"
 url = "2.3.1"
+sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls", "chrono"] }
 tokio = { version = "1.8", features = ["rt-multi-thread", "macros"] }
 reqwest = { version = "0.11", default-features = false, features = [
   "json",
@@ -19,8 +20,8 @@ futures = "0.3" # for our async / await blocks
 openssl-sys = "0.9.98"
 pyroscope = "0.5.7"
 pyroscope_pprofrs = "0.2.7"
-sqlx = { version = "0.6", features = ["postgres", "runtime-tokio-rustls"] }
 rand = "0.8.5"
+chrono = { version = "0.4", features = ["serde"] }
 
 [lib]
 name = "db"

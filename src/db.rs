@@ -1,78 +1,89 @@
-
-
+use chrono::NaiveDateTime;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::Error;
 use sqlx::Row;
-use tokio::runtime::Runtime;
 
 pub struct Database {
     pool: sqlx::Pool<sqlx::Postgres>,
+    table_name: String,
 }
 
 impl Database {
     // Initialize the database connection pool
-    pub async fn new(database_url: &str) -> Result<Self, Error> {
+    pub async fn new(database_url: &str, table_name: &str) -> Result<Self, Error> {
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .connect(database_url)
             .await?;
-        
-        Ok(Self { pool })
+        Ok(Self {
+            pool,
+            table_name: table_name.to_string(),
+        })
     }
 
     // Method to create a table with a given name
-    pub async fn create_table(&self, table_name: &str) -> Result<(), Error> {
+    pub async fn create_table(&self) -> Result<(), Error> {
         let query = format!(
             r#"
             CREATE TABLE IF NOT EXISTS {} (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
+                id SERIAL PRIMARY KEY,
+                action TEXT NOT NULL,
+                file_size BIGINT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             "#,
-            table_name
+            self.table_name
         );
-        sqlx::query(&query)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(&query).execute(&self.pool).await?;
         Ok(())
     }
 
-    // Method to set a key-value pair in a table with a given name
-    pub async fn set(&self, table_name: &str, key: &str, value: &str) -> Result<(), Error> {
+    // Method to add an action in the table
+    pub async fn add(&self, action: &str) -> Result<(), Error> {
+        let query = format!("INSERT INTO {} (action) VALUES ($1)", self.table_name);
+        sqlx::query(&query).bind(action).execute(&self.pool).await?;
+        Ok(())
+    }
+
+    // Method to record file size with a specified action
+    pub async fn filesize(&self, size: i64) -> Result<(), Error> {
         let query = format!(
-            "INSERT INTO {} (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2",
-            table_name
+            "INSERT INTO {} (action, file_size) VALUES ($1, $2)",
+            self.table_name
         );
         sqlx::query(&query)
-            .bind(key)
-            .bind(value)
+            .bind("file_downloaded")
+            .bind(size)
             .execute(&self.pool)
             .await?;
         Ok(())
     }
 
-    // Method to get a value by key from a table with a given name
-    pub async fn get(&self, table_name: &str, key: &str) -> Result<Option<String>, Error> {
-        let query = format!("SELECT value FROM {} WHERE key = $1", table_name);
+    // Method to get a value by action from the table
+    pub async fn get(&self, action: &str) -> Result<Option<(i32, String, NaiveDateTime)>, Error> {
+        let query = format!(
+            "SELECT id, action, created_at FROM {} WHERE action = $1",
+            self.table_name
+        );
         let row = sqlx::query(&query)
-            .bind(key)
+            .bind(action)
             .fetch_optional(&self.pool)
             .await?;
 
         if let Some(row) = row {
-            let value: String = row.get("value");
-            Ok(Some(value))
+            let id: i32 = row.get("id");
+            let action: String = row.get("action");
+            let created_at: NaiveDateTime = row.get("created_at");
+            Ok(Some((id, action, created_at)))
         } else {
             Ok(None)
         }
     }
 
-    // Method to drop a table with a given name
-    pub async fn drop_table(&self, table_name: &str) -> Result<(), Error> {
-        let query = format!("DROP TABLE IF EXISTS {}", table_name);
-        sqlx::query(&query)
-            .execute(&self.pool)
-            .await?;
+    // Method to drop the table
+    pub async fn drop_table(&self) -> Result<(), Error> {
+        let query = format!("DROP TABLE IF EXISTS {}", self.table_name);
+        sqlx::query(&query).execute(&self.pool).await?;
         Ok(())
     }
 }
@@ -83,17 +94,25 @@ mod tests {
     use std::env;
 
     #[tokio::test]
-    async fn test_set_and_get() {
+    async fn test_add_and_get() {
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-        let db = Database::new(&database_url).await.unwrap();
         let table_name = "kv_store_test";
-        db.create_table(table_name).await.unwrap();
+        let db = Database::new(&database_url, table_name).await.unwrap();
 
-        db.set(table_name, "foo", "bar").await.unwrap();
-        let value = db.get(table_name, "foo").await.unwrap();
-        assert_eq!(value, Some("bar".to_string()));
+        db.create_table().await.unwrap();
+        db.add("foo").await.unwrap();
+        let value = db.get("foo").await.unwrap();
+        if let Some((id, action, created_at)) = value {
+            println!("id: {}, action: {}, created_at: {}", id, action, created_at);
+            assert_eq!(action, "foo");
+        } else {
+            panic!("No value found");
+        }
+
+        // Test the filesize method
+        db.filesize(1068845).await.unwrap();
 
         // Drop the table after the test
-        db.drop_table(table_name).await.unwrap();
+        db.drop_table().await.unwrap();
     }
 }

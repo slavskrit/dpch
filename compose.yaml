@@ -1,13 +1,30 @@
 services:
-  pyroscope:
-    image: grafana/pyroscope
+  grafana:
+    image: grafana/grafana:latest
     ports:
-      - '4040:4040'
-
+      - "3000:3000"
+      
+  postgres:
+    image: postgres:13
+    container_name: db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      
   bot:
     container_name: dpch
     build: .
     environment:
-      - RUST_LOG=info
-      - PYROSCOPE_URL=${PYROSCOPE_URL}
-      - TELOXIDE_TOKEN=${TELOXIDE_TOKEN}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      RUST_LOG: info
+      TELOXIDE_TOKEN: ${TELOXIDE_TOKEN}
+      
+volumes:
+  postgres_data:

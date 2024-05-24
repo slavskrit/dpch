@@ -1,5 +1,8 @@
-use log::info;
+use chrono::NaiveDateTime;
+use db::Database;
+use log::{error, info};
 use rand::distributions::{Alphanumeric, DistString};
+use std::env;
 use std::io::Result;
 use std::process::Command;
 use std::sync::Arc;
@@ -7,7 +10,14 @@ use teloxide::payloads::SendVideoSetters;
 use teloxide::prelude::*;
 use teloxide::types::InputFile;
 
-// mod db;
+use std::fs::metadata;
+use std::io;
+use std::path::Path;
+
+fn get_file_size<P: AsRef<Path>>(path: P) -> io::Result<u64> {
+    let metadata = metadata(path)?;
+    Ok(metadata.len())
+}
 
 #[derive(Clone, Default)]
 pub enum State {
@@ -15,13 +25,18 @@ pub enum State {
     Start,
 }
 
-static APPLICATION_NAME: &str = "dpch";
 static INSTAGRAM_MAIN_URL: &str = "https://www.instagram.com/";
 
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
+    let postgres_user = env::var("POSTGRES_USER").expect("POSTGRES_USER must be set");
+    let postgres_password = env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD must be set");
+    let postgres_db = env::var("POSTGRES_DB").expect("POSTGRES_DB must be set");
+    let database_url = format!("postgres://{postgres_user}:{postgres_password}@postgres:5432/");
+
     info!("Starting DPCH bot...");
+    info!("DB at: {database_url}");
 
     let start = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -29,31 +44,32 @@ async fn main() -> Result<()> {
         .as_secs();
     info!("Start Time: {start}");
 
-    // let db = Database::new(&database_url).await.unwrap();
-    // //
-    //     db.set("foo", "bar").await.unwrap();
-    //     let value = db.get("foo").await.unwrap();
-    //
+    let db = Arc::new(Database::new(&database_url, &postgres_db).await.unwrap());
+    db.create_table().await.unwrap();
+
     let bot = Bot::from_env();
-    // let agent_running = agent.start();
     teloxide::repl(bot, move |bot: Bot, msg: Message| {
-        // let (add_tag, remove_tag) = (add_tag.clone(), remove_tag.clone());
+        let db = db.clone();
         async move {
             match msg.text().map(|text| text.contains(INSTAGRAM_MAIN_URL)) {
                 Some(true) => {
                     let link = msg.text().unwrap();
                     info!("Found Instagram link in the text: {}", link);
-                    // add_tag("action".to_string(), "download_video".to_string()).unwrap();
+                    // db.add("download", "", true).await.unwrap();
                     let url = extract_link(link).unwrap();
                     let video_id = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
                     let video_path = download(url, video_id.clone()).await;
                     info!("File with url {url} saved to {video_path}");
-                    // remove_tag("action".to_string(), "download_video".to_string()).unwrap();
-                    // add_tag("action".to_string(), "upload_video".to_string()).unwrap();
+                    // db.add("download", "", false).await.unwrap();
+                    // db.add("upload", "", true).await.unwrap();
+                    match get_file_size(&video_path) {
+                        Ok(size) => db.filesize(size as i64).await.unwrap(),
+                        Err(e) => error!("Error getting file size: {}", e),
+                    }
                     bot.send_video(msg.chat.id, InputFile::file(video_path))
                         .reply_to_message_id(msg.id)
                         .await?;
-                    // remove_tag("action".to_string(), "upload_video".to_string()).unwrap();
+                    // db.add("upload", "", false).await.unwrap();
                 }
                 Some(false) => {
                     info!("Text does not contain an Instagram link.");
