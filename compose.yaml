@@ -3,9 +3,13 @@ services:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
+    logging:
+      driver: none
       
   postgres:
     image: postgres:13
+    logging:
+      driver: none
     container_name: db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -18,6 +22,7 @@ services:
       
   bot:
     container_name: dpch
+    platform: linux/amd64
     build: .
     environment:
       POSTGRES_USER: ${POSTGRES_USER}

@@ -38,7 +38,7 @@ RUN apt-get update -y && apt-get install -y \
     ffmpeg \
     python3-pip
 
-RUN python3 -m pip install -U "yt-dlp[default]"
+RUN python3 -m pip install -U --pre "yt-dlp[default]"
 
 # RUN sudo usermod -aG docker appuser
 USER appuser
