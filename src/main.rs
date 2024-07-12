@@ -1,5 +1,3 @@
-
-
 use db::Database;
 use log::{error, info};
 use rand::distributions::{Alphanumeric, DistString};
@@ -33,13 +31,13 @@ static X_MAIN_URL: &str = "https://x.com/";
 #[tokio::main]
 async fn main() -> Result<()> {
     pretty_env_logger::init_timed();
-    let postgres_user = env::var("POSTGRES_USER").expect("POSTGRES_USER must be set");
-    let postgres_password = env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD must be set");
-    let postgres_db = env::var("POSTGRES_DB").expect("POSTGRES_DB must be set");
-    let database_url = format!("postgres://{postgres_user}:{postgres_password}@postgres:5432/");
+    // let postgres_user = env::var("POSTGRES_USER").expect("POSTGRES_USER must be set");
+    // let postgres_password = env::var("POSTGRES_PASSWORD").expect("POSTGRES_PASSWORD must be set");
+    // let postgres_db = env::var("POSTGRES_DB").expect("POSTGRES_DB must be set");
+    // let database_url = format!("postgres://{postgres_user}:{postgres_password}@postgres:5432/");
 
     info!("Starting DPCH bot...");
-    info!("DB at: {database_url}");
+    // info!("DB at: {database_url}");
 
     let start = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -47,18 +45,18 @@ async fn main() -> Result<()> {
         .as_secs();
     info!("Start Time: {start}");
 
-    let db = Arc::new(Database::new(&database_url, &postgres_db).await.unwrap());
-    db.create_table().await.unwrap();
+    // let db = Arc::new(Database::new(&database_url, &postgres_db).await.unwrap());
+    // db.create_table().await.unwrap();
 
     let bot = Bot::from_env();
     teloxide::repl(bot, move |bot: Bot, msg: Message| {
-        let db = db.clone();
+        // let db = db.clone();
         async move {
             if let Some(text) = msg.text() {
                 if text.contains(X_MAIN_URL) {
-                    process_message(&bot, &db, &msg, text, X_MAIN_URL).await;
+                    process_message(&bot, &msg, text, X_MAIN_URL).await;
                 } else if text.contains(INSTAGRAM_MAIN_URL) {
-                    process_message(&bot, &db, &msg, text, INSTAGRAM_MAIN_URL).await;
+                    process_message(&bot, &msg, text, INSTAGRAM_MAIN_URL).await;
                 } else {
                     info!("Text does not contain an Instagram or X link.");
                 }
@@ -73,7 +71,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn process_message(bot: &Bot, db: &Arc<Database>, msg: &Message, text: &str, main_url: &str) {
+async fn process_message(bot: &Bot, msg: &Message, text: &str, main_url: &str) {
     info!("Found {} link in the text: {}", main_url, text);
     if let Some(url) = extract_link(text, main_url) {
         let video_id = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
@@ -81,14 +79,14 @@ async fn process_message(bot: &Bot, db: &Arc<Database>, msg: &Message, text: &st
         info!("File with url {} saved to {}", url, video_path);
 
         match get_file_size(&video_path) {
-            Ok(size) => db.filesize(size as i64).await.unwrap(),
+            Ok(size) => info!("Size of the file: {}", size),
             Err(e) => error!("Error getting file size: {}", e),
         }
 
-
-        if let Err(e) = bot.send_video(msg.chat.id, InputFile::file(video_path.clone()))
+        if let Err(e) = bot
+            .send_video(msg.chat.id, InputFile::file(video_path.clone()))
             .reply_to_message_id(msg.id)
-            .await 
+            .await
         {
             error!("Error sending video: {}", e);
         }
@@ -131,7 +129,6 @@ async fn download(url: &str, video_id: String) -> String {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -146,7 +143,8 @@ mod tests {
 
     #[test]
     fn test_extract_link_with_multiple_links() {
-        let message = "Here are two links: https://www.instagram.com/p/xyz123/ and https://x.com/abc456/";
+        let message =
+            "Here are two links: https://www.instagram.com/p/xyz123/ and https://x.com/abc456/";
         let main_url = "https://www.instagram.com/";
         let result = extract_link(message, main_url);
         assert_eq!(result, Some("https://www.instagram.com/p/xyz123/"));
@@ -164,11 +162,11 @@ mod tests {
     fn test_get_file_size() {
         use std::fs::File;
         use std::io::Write;
-        
+
         let path = "/tmp/test_file_size.txt";
         let mut file = File::create(path).unwrap();
         writeln!(file, "Hello, world!").unwrap();
-        
+
         let size = get_file_size(path).unwrap();
         assert_eq!(size, 14); // "Hello, world!\n" is 14 bytes
 
